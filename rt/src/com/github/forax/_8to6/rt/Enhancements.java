@@ -259,7 +259,6 @@ public class Enhancements {
     }
     
     @Override
-    @SuppressWarnings("unchecked")
     public T reduce(T identity, BinaryOperator<T> accumulator) {
       return reduce(identity, accumulator, (a, b) -> { throw new AssertionError(); });
     }
