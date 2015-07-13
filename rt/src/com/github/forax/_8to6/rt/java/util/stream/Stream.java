@@ -1,8 +1,6 @@
 package com.github.forax._8to6.rt.java.util.stream;
 
-import java.io.Closeable;
 import java.util.Comparator;
-import java.util.Iterator;
 
 import com.github.forax._8to6.rt.java.util.Optional;
 import com.github.forax._8to6.rt.java.util.function.BiConsumer;
@@ -17,9 +15,7 @@ import com.github.forax._8to6.rt.java.util.function.ToDoubleFunction;
 import com.github.forax._8to6.rt.java.util.function.ToIntFunction;
 import com.github.forax._8to6.rt.java.util.function.ToLongFunction;
 
-public interface Stream<T> extends Closeable {
-  Iterator<T> iterator();
-  
+public interface Stream<T> extends BaseStream<T, Stream<T>> {
   Stream<T> filter(Predicate<? super T> predicate);
   
   <R> Stream<R> map(Function<? super T, ? extends R> mapper);

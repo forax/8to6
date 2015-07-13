@@ -12,9 +12,7 @@ import com.github.forax._8to6.rt.java.util.function.DoubleUnaryOperator;
 import com.github.forax._8to6.rt.java.util.function.ObjDoubleConsumer;
 import com.github.forax._8to6.rt.java.util.function.Supplier;
 
-public interface DoubleStream {
-
-    
+public interface DoubleStream extends BaseStream<Double, DoubleStream> {
     DoubleStream filter(DoublePredicate predicate);
 
     

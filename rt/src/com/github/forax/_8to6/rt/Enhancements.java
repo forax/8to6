@@ -15,7 +15,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import com.github.forax._8to6.rt.Enhancements.StreamImpl;
 import com.github.forax._8to6.rt.java.util.Optional;
 import com.github.forax._8to6.rt.java.util.OptionalDouble;
 import com.github.forax._8to6.rt.java.util.OptionalInt;
@@ -95,7 +94,7 @@ public class Enhancements {
   }
   
   static <T> StreamImpl<T> streamImpl(Iterable<? extends T> iterable) {
-    return new StreamImpl<>((initial, test, fun) -> reduceLoop(iterable.iterator(), initial, test, fun));
+    return new StreamImpl<>(() -> { /*empty*/}, (initial, test, fun) -> reduceLoop(iterable.iterator(), initial, test, fun));
   }
   
   static class Counter {
@@ -112,9 +111,12 @@ public class Enhancements {
   }
   
   static class StreamImpl<T> implements Stream<T> {
+    private final Runnable closer;
     private final Looper<T> looper;
     
-    StreamImpl(Looper<T> looper) {
+    
+    StreamImpl(Runnable closer, Looper<T> looper) {
+      this.closer = closer;
       this.looper = looper;
     }
     
@@ -144,7 +146,7 @@ public class Enhancements {
     @Override
     public Stream<T> limit(long maxSize) {
       Counter counter = new Counter(0);
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial,
             () -> test.getAsBoolean() && counter.counter < maxSize,
             (acc, element) -> {
@@ -155,7 +157,7 @@ public class Enhancements {
     @Override
     public Stream<T> skip(long n) {
       Counter counter = new Counter(n);
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial, test, (acc, element) -> {
           if (counter.counter > 0) {
             counter.counter--;
@@ -195,7 +197,7 @@ public class Enhancements {
     
     @Override
     public Stream<T> peek(Consumer<? super T> action) {
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial, test, (acc, element) -> {
           action.accept(element);
           return fun.apply(acc, element);
@@ -205,7 +207,7 @@ public class Enhancements {
     
     @Override
     public Stream<T> filter(Predicate<? super T> predicate) {
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial, test, (acc, element) -> {
           if (predicate.test(element)) {
             return fun.apply(acc, element);
@@ -217,7 +219,7 @@ public class Enhancements {
     
     @Override
     public <U> Stream<U> map(Function<? super T, ? extends U> mapper) {
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial, test, (acc, element) ->
           fun.apply(acc, mapper.apply(element))));
     }
@@ -235,7 +237,7 @@ public class Enhancements {
     }
     @Override
     public <R> Stream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper) {
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial, test, (acc, element) -> {
           Stream<? extends R> stream = mapper.apply(element);
           try(StreamImpl<? extends R> impl =  (stream instanceof StreamImpl)? 
@@ -309,7 +311,7 @@ public class Enhancements {
     @Override
     public Stream<T> distinct() {
       HashSet<T> set = new HashSet<>();
-      return new StreamImpl<>((initial, test, fun) ->
+      return new StreamImpl<>(closer, (initial, test, fun) ->
         looper.loop(initial, test, (acc, element) -> {
           if(set.add(element)) {
             return fun.apply(acc, element);
@@ -326,7 +328,7 @@ public class Enhancements {
     
     @Override
     public Stream<T> sorted(Comparator<? super T> comparator) {
-      return new StreamImpl<>((initial, test, fun) -> {
+      return new StreamImpl<>(closer, (initial, test, fun) -> {
         List<T> list = collect(Collectors.toList());
         Collections.sort(list, comparator);
         return reduceLoop(list.iterator(), initial, test, fun);
@@ -346,9 +348,34 @@ public class Enhancements {
       return mapToLong(e -> 1).reduce(0, (a, b) -> a + b);
     }
     
+    
     @Override
     public void close() {
-      //FIXME !
+      closer.run();
+    }
+    @Override
+    public Stream<T> onClose(Runnable closeHandler) {
+      return new StreamImpl<>(() -> {
+        closer.run();
+        closeHandler.run();
+      }, looper);
+    }
+
+    @Override
+    public boolean isParallel() {
+      return false;
+    }
+    @Override
+    public Stream<T> sequential() {
+      return this;
+    }
+    @Override
+    public Stream<T> parallel() {
+      return this;
+    }
+    @Override
+    public Stream<T> unordered() {
+      return this;
     }
   }
   
@@ -508,6 +535,36 @@ public class Enhancements {
     public Stream<Integer> boxed() {
       return impl;
     }
+    @Override
+    public Iterator<Integer> iterator() {
+      return impl.iterator();
+    }
+    
+    @Override
+    public void close() {
+      impl.close();
+    }
+    @Override
+    public IntStream onClose(Runnable closeHandler) {
+      return new IntStreamImpl(impl.onClose(closeHandler));
+    }
+
+    @Override
+    public boolean isParallel() {
+      return false;
+    }
+    @Override
+    public IntStream sequential() {
+      return this;
+    }
+    @Override
+    public IntStream parallel() {
+      return this;
+    }
+    @Override
+    public IntStream unordered() {
+      return this;
+    }
   }
   
   static final class LongStreamImpl implements LongStream {
@@ -658,10 +715,39 @@ public class Enhancements {
       return mapToDouble(e -> (double)e);
     }
     
-
     @Override
     public Stream<Long> boxed() {
       return impl;
+    }
+    @Override
+    public Iterator<Long> iterator() {
+      return impl.iterator();
+    }
+    
+    @Override
+    public void close() {
+      impl.close();
+    }
+    @Override
+    public LongStream onClose(Runnable closeHandler) {
+      return new LongStreamImpl(impl.onClose(closeHandler));
+    }
+
+    @Override
+    public boolean isParallel() {
+      return false;
+    }
+    @Override
+    public LongStream sequential() {
+      return this;
+    }
+    @Override
+    public LongStream parallel() {
+      return this;
+    }
+    @Override
+    public LongStream unordered() {
+      return this;
     }
   }
   
@@ -811,6 +897,36 @@ public class Enhancements {
     @Override
     public Stream<Double> boxed() {
       return impl;
+    }
+    @Override
+    public Iterator<Double> iterator() {
+      return impl.iterator();
+    }
+    
+    @Override
+    public void close() {
+      impl.close();
+    }
+    @Override
+    public DoubleStream onClose(Runnable closeHandler) {
+      return new DoubleStreamImpl(impl.onClose(closeHandler));
+    }
+
+    @Override
+    public boolean isParallel() {
+      return false;
+    }
+    @Override
+    public DoubleStream sequential() {
+      return this;
+    }
+    @Override
+    public DoubleStream parallel() {
+      return this;
+    }
+    @Override
+    public DoubleStream unordered() {
+      return this;
     }
   }
   

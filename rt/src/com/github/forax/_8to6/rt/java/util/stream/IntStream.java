@@ -13,7 +13,7 @@ import com.github.forax._8to6.rt.java.util.function.IntUnaryOperator;
 import com.github.forax._8to6.rt.java.util.function.ObjIntConsumer;
 import com.github.forax._8to6.rt.java.util.function.Supplier;
 
-public interface IntStream {
+public interface IntStream extends BaseStream<Integer, IntStream> {
   IntStream filter(IntPredicate predicate);
   
   IntStream map(IntUnaryOperator mapper);

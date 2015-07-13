@@ -13,7 +13,7 @@ import com.github.forax._8to6.rt.java.util.function.LongUnaryOperator;
 import com.github.forax._8to6.rt.java.util.function.ObjLongConsumer;
 import com.github.forax._8to6.rt.java.util.function.Supplier;
 
-public interface LongStream {
+public interface LongStream extends BaseStream<Long, LongStream> {
   LongStream filter(LongPredicate predicate);
 
   LongStream map(LongUnaryOperator mapper);
