@@ -1,9 +1,7 @@
 package java.util;
 
-import java.util.function.LongSupplier;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
-import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 public final class OptionalDouble {
