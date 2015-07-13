@@ -69,7 +69,7 @@ public class CompatInfoChecker {
     public R apply(T t) throws IOException;
   }
   
-  private static <T, R extends Closeable> Function<T, R> io(Stream<?> stream, IOFunction<? super T, ? extends R> fun) {
+  private static <T, R extends Closeable> Function<T, R> io(IOFunction<? super T, ? extends R> fun) {
     return element -> {
       try {
         R res = fun.apply(element);
@@ -97,14 +97,14 @@ public class CompatInfoChecker {
       try(JarFile jarFile = new JarFile(inputPath.toFile());
           Stream<JarEntry> stream = jarFile.stream()) {
         scan(stream.filter(entry -> entry.getName().endsWith(".class"))
-                   .map(io(stream, jarFile::getInputStream)),
-            signatureMap);
+                   .map(io(jarFile::getInputStream)),
+             signatureMap);
       }
     } else {
       try(Stream<Path> stream = Files.walk(inputPath)) {
         scan(stream.filter(path -> path.toString().endsWith(".class"))
-                   .map(io(stream, Files::newInputStream)),
-            signatureMap);
+                   .map(io(Files::newInputStream)),
+             signatureMap);
       }
     }
    
