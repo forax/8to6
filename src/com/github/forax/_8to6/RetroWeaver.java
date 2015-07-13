@@ -1,6 +1,7 @@
 package com.github.forax._8to6;
 
-import static org.objectweb.asm.Opcodes.*;
+import static java.util.stream.Collectors.toList;
+import static org.objectweb.asm.Opcodes.ASM5;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 import java.io.IOException;
@@ -12,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
-import java.util.stream.Collectors;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -118,7 +118,7 @@ public class RetroWeaver {
          });
     
     // retro weave
-    for(Path path: Files.walk(retroClasses).filter(path -> !Files.isDirectory(path)).collect(Collectors.toList())) {
+    for(Path path: Files.walk(retroClasses).filter(path -> !Files.isDirectory(path)).collect(toList())) {
       byte[] source = Files.readAllBytes(path);
       byte[] result = retroWeaver.retroweave(source);
       System.out.println("retro " + path);

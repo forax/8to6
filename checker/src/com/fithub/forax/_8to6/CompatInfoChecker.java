@@ -1,5 +1,7 @@
 package com.fithub.forax._8to6;
 
+import static org.objectweb.asm.Opcodes.ASM5;
+
 import java.io.Closeable;
 import java.io.IOError;
 import java.io.IOException;
@@ -7,11 +9,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -21,8 +20,6 @@ import java.util.stream.Stream;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-
-import static org.objectweb.asm.Opcodes.*;
 
 public class CompatInfoChecker {
   private static void scan(Stream<InputStream> stream, Map<String, Set<String>> signatureMap) throws IOException {
