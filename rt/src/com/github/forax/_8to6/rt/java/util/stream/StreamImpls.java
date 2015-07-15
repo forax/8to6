@@ -1,19 +1,10 @@
-package com.github.forax._8to6.rt;
+package com.github.forax._8to6.rt.java.util.stream;
 
-import java.lang.invoke.CallSite;
-import java.lang.invoke.ConstantCallSite;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandleProxies;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import com.github.forax._8to6.rt.java.util.Optional;
 import com.github.forax._8to6.rt.java.util.OptionalDouble;
@@ -54,20 +45,15 @@ import com.github.forax._8to6.rt.java.util.function.Supplier;
 import com.github.forax._8to6.rt.java.util.function.ToDoubleFunction;
 import com.github.forax._8to6.rt.java.util.function.ToIntFunction;
 import com.github.forax._8to6.rt.java.util.function.ToLongFunction;
-import com.github.forax._8to6.rt.java.util.stream.Collector;
-import com.github.forax._8to6.rt.java.util.stream.Collectors;
-import com.github.forax._8to6.rt.java.util.stream.DoubleStream;
-import com.github.forax._8to6.rt.java.util.stream.IntStream;
-import com.github.forax._8to6.rt.java.util.stream.LongStream;
-import com.github.forax._8to6.rt.java.util.stream.Stream;
 
-
-public class Enhancements {
-  public static <T> Stream<T> stream(Set<T> list) {
-    return streamImpl(list);
+public class StreamImpls {
+  public static <T> StreamImpl<T> fromIterable(Iterable<? extends T> iterable) {
+    return streamImpl((initial, test, fun) -> reduceLoop(iterable.iterator(), initial, test, fun));
   }
   
-  
+  static <T> StreamImpl<T> streamImpl(Looper<T> looper) {
+    return new StreamImpl<>(() -> { /*empty*/ }, looper);
+  }
   
   // --- implementations
   
@@ -81,10 +67,6 @@ public class Enhancements {
       acc = fun.apply(acc, iterator.next());
     }
     return acc;
-  }
-  
-  static <T> StreamImpl<T> streamImpl(Iterable<? extends T> iterable) {
-    return new StreamImpl<>(() -> { /*empty*/}, (initial, test, fun) -> reduceLoop(iterable.iterator(), initial, test, fun));
   }
   
   static class Counter {
@@ -232,7 +214,7 @@ public class Enhancements {
           Stream<? extends R> stream = mapper.apply(element);
           try(StreamImpl<? extends R> impl =  (stream instanceof StreamImpl)? 
             (StreamImpl<? extends R>)stream:
-            streamImpl(stream::iterator)) {
+            fromIterable(stream::iterator)) {
             return impl.looper.loop(acc, test, fun);
           }
         }));
@@ -918,55 +900,5 @@ public class Enhancements {
     public DoubleStream unordered() {
       return this;
     }
-  }
-  
-  // --- lambda metafactory
-  
-  private static final MethodHandle PROXY;
-  private static final MethodHandle INSERT_ARGUMENTS;
-  static {
-    Lookup lookup = MethodHandles.lookup();
-    try {
-      PROXY = lookup.findStatic(Enhancements.class, "proxy",
-          MethodType.methodType(Object.class, Class.class, MethodHandle.class));
-      INSERT_ARGUMENTS =  lookup.findStatic(Enhancements.class, "insertArguments",
-                  MethodType.methodType(MethodHandle.class, MethodHandle.class, Object[].class));
-    } catch (NoSuchMethodException | IllegalAccessException e) {
-      throw new AssertionError(e);
-    }
-  }
-  
-  // can not create a method handle on a method of java.lang.invoke, need a trampoline
-  private static Object proxy(Class<?> interfaze, MethodHandle target) {
-    return MethodHandleProxies.asInterfaceInstance(interfaze, target);
-  }
-  @SuppressWarnings("unused")
-  private static MethodHandle insertArguments(MethodHandle target, Object... values) {
-    return MethodHandles.insertArguments(target, 0, values);
-  }
-  
-  public static CallSite metafactory(Lookup lookup, String name, MethodType type,
-      MethodType sig, MethodHandle impl, MethodType reifiedSig) throws Throwable {
-
-    Class<?> interfaze = type.returnType();
-    if (type.parameterCount() == 0) {   // constant lambda
-      MethodHandle target = impl.asType(reifiedSig);
-      Object proxy = proxy(interfaze, target);
-      return new ConstantCallSite(MethodHandles.constant(interfaze, proxy));
-    }
-    
-    MethodHandle binder = INSERT_ARGUMENTS
-        .bindTo(impl)
-        .asCollector(Object[].class, type.parameterCount())
-        .asType(type.changeReturnType(MethodHandle.class));
-    
-    MethodHandle proxyFactory = MethodHandles
-        .dropArguments(PROXY.bindTo(interfaze), 1, type.parameterList());
-    
-    MethodHandle target = MethodHandles
-        .foldArguments(proxyFactory, binder)
-        .asType(type);
-    
-    return new ConstantCallSite(target);
   }
 }
