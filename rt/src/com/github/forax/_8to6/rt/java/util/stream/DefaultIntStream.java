@@ -16,7 +16,7 @@ public class DefaultIntStream {
 
   public static IntStream of(int... values) {
     //FIXME Arrays.stream
-    return new IntStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
+    return new IntStreamImpl(StreamImpls.fromReducer((initial, test, fun) -> {
       int length = values.length;
       for(int i = 0; i < length && test.getAsBoolean(); i++) {
         initial = fun.apply(initial, values[i]);
@@ -34,7 +34,7 @@ public class DefaultIntStream {
   }
 
   public static IntStream range(int startInclusive, int endExclusive) {
-    return new IntStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
+    return new IntStreamImpl(StreamImpls.fromReducer((initial, test, fun) -> {
       for(int i = startInclusive; i < endExclusive && test.getAsBoolean(); i++) {
         initial = fun.apply(initial, i);
       }
@@ -43,7 +43,7 @@ public class DefaultIntStream {
   }
 
   public static IntStream rangeClosed(int startInclusive, int endInclusive) {
-    return new IntStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
+    return new IntStreamImpl(StreamImpls.fromReducer((initial, test, fun) -> {
       for(int i = startInclusive; i <= endInclusive && test.getAsBoolean(); i++) {
         initial = fun.apply(initial, i);
       }

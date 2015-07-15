@@ -1,5 +1,6 @@
 package com.github.forax._8to6.rt.java.util.stream;
 
+import com.github.forax._8to6.rt.java.util.Arrays;
 import com.github.forax._8to6.rt.java.util.function.LongSupplier;
 import com.github.forax._8to6.rt.java.util.function.LongUnaryOperator;
 import com.github.forax._8to6.rt.java.util.stream.StreamImpls.LongStreamImpl;
@@ -14,14 +15,7 @@ public class DefaultLongStream {
   }
 
   public static LongStream of(long... values) {
-    //FIXME Arrays.stream
-    return new LongStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
-      int length = values.length;
-      for(int i = 0; i < length && test.getAsBoolean(); i++) {
-        initial = fun.apply(initial, values[i]);
-      }
-      return initial;
-    }));
+    return Arrays.stream(values, 0, values.length);
   }
 
   public static LongStream iterate(final long seed, final LongUnaryOperator f) {
@@ -34,7 +28,7 @@ public class DefaultLongStream {
 
 
   public static LongStream range(long startInclusive, long endExclusive) {
-    return new LongStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
+    return new LongStreamImpl(StreamImpls.fromReducer((initial, test, fun) -> {
       for(long i = startInclusive; i < endExclusive && test.getAsBoolean(); i++) {
         initial = fun.apply(initial, i);
       }
@@ -43,7 +37,7 @@ public class DefaultLongStream {
   }
 
   public static LongStream rangeClosed(long startInclusive, long endInclusive) {
-    return new LongStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
+    return new LongStreamImpl(StreamImpls.fromReducer((initial, test, fun) -> {
       for(long i = startInclusive; i <= endInclusive && test.getAsBoolean(); i++) {
         initial = fun.apply(initial, i);
       }

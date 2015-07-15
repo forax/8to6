@@ -1,5 +1,6 @@
 package com.github.forax._8to6.rt.java.util.stream;
 
+import com.github.forax._8to6.rt.java.util.Arrays;
 import com.github.forax._8to6.rt.java.util.function.DoubleSupplier;
 import com.github.forax._8to6.rt.java.util.function.DoubleUnaryOperator;
 import com.github.forax._8to6.rt.java.util.stream.StreamImpls.DoubleStreamImpl;
@@ -14,14 +15,7 @@ public class DefaultDoubleStream {
   }
 
   public static DoubleStream of(double... values) {
-      //FIXME return Arrays.stream(values);
-    return new DoubleStreamImpl(StreamImpls.streamImpl((initial, test, fun) -> {
-      int length = values.length;
-      for(int i = 0; i < length && test.getAsBoolean(); i++) {
-        initial = fun.apply(initial, values[i]);
-      }
-      return initial;
-    }));
+    return Arrays.stream(values, 0, values.length);
   }
 
   public static DoubleStream iterate(final double seed, final DoubleUnaryOperator f) {

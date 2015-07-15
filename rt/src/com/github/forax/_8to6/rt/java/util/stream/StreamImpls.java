@@ -48,16 +48,26 @@ import com.github.forax._8to6.rt.java.util.function.ToLongFunction;
 
 public class StreamImpls {
   public static <T> StreamImpl<T> fromIterable(Iterable<? extends T> iterable) {
-    return streamImpl((initial, test, fun) -> reduceLoop(iterable.iterator(), initial, test, fun));
+    return fromReducer((initial, test, fun) -> reduceLoop(iterable.iterator(), initial, test, fun));
   }
   
-  static <T> StreamImpl<T> streamImpl(Looper<T> looper) {
+  public static <T> StreamImpl<T> fromReducer(Reducer<T> looper) {
     return new StreamImpl<>(() -> { /*empty*/ }, looper);
+  }
+  
+  public static IntStream wrapToIntStream(StreamImpl<Integer> impl) {
+    return new IntStreamImpl(impl);
+  }
+  public static LongStream wrapToLongStream(StreamImpl<Long> impl) {
+    return new LongStreamImpl(impl);
+  }
+  public static DoubleStream wrapToDoubleStream(StreamImpl<Double> impl) {
+    return new DoubleStreamImpl(impl);
   }
   
   // --- implementations
   
-  interface Looper<T> {
+  public interface Reducer<T> {
     Object loop(Object initial, BooleanSupplier test, BiFunction<Object, ? super T, Object> fun);
   }
   
@@ -82,19 +92,18 @@ public class StreamImpls {
     }
   }
   
-  static class StreamImpl<T> implements Stream<T> {
+  public static class StreamImpl<T> implements Stream<T> {
     private final Runnable closer;
-    private final Looper<T> looper;
+    private final Reducer<T> reducer;
     
-    
-    StreamImpl(Runnable closer, Looper<T> looper) {
+    StreamImpl(Runnable closer, Reducer<T> reducer) {
       this.closer = closer;
-      this.looper = looper;
+      this.reducer = reducer;
     }
     
     @Override
     public void forEach(Consumer<? super T> consumer) {
-      looper.loop(null, () -> true, (__, element) -> { consumer.accept(element); return null; });
+      reducer.loop(null, () -> true, (__, element) -> { consumer.accept(element); return null; });
     }
     @Override
     public void forEachOrdered(Consumer<? super T> consumer) {
@@ -109,7 +118,7 @@ public class StreamImpls {
     @SuppressWarnings("unchecked")
     public Optional<T> findFirst() {
       Stop stop = new Stop();
-      return (Optional<T>)looper.loop(Optional.empty(), stop, (acc, element) -> {
+      return (Optional<T>)reducer.loop(Optional.empty(), stop, (acc, element) -> {
         stop.stop = false;
         return Optional.of(element);
       });
@@ -119,7 +128,7 @@ public class StreamImpls {
     public Stream<T> limit(long maxSize) {
       Counter counter = new Counter(0);
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial,
+        reducer.loop(initial,
             () -> test.getAsBoolean() && counter.counter < maxSize,
             (acc, element) -> {
               counter.counter++;
@@ -130,7 +139,7 @@ public class StreamImpls {
     public Stream<T> skip(long n) {
       Counter counter = new Counter(n);
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial, test, (acc, element) -> {
+        reducer.loop(initial, test, (acc, element) -> {
           if (counter.counter > 0) {
             counter.counter--;
             return acc;
@@ -142,7 +151,7 @@ public class StreamImpls {
     @Override
     public boolean allMatch(Predicate<? super T> predicate) {
       Stop stop = new Stop();
-      return (Boolean)looper.loop(true, stop, (acc, element) -> {
+      return (Boolean)reducer.loop(true, stop, (acc, element) -> {
         if (!predicate.test(element)) {
           stop.stop = false;
           return false;
@@ -157,7 +166,7 @@ public class StreamImpls {
     @Override
     public boolean anyMatch(Predicate<? super T> predicate) {
       Stop stop = new Stop();
-      return (Boolean)looper.loop(false, stop, (acc, element) -> {
+      return (Boolean)reducer.loop(false, stop, (acc, element) -> {
         if (predicate.test(element)) {
           stop.stop = false;
           return true;
@@ -170,7 +179,7 @@ public class StreamImpls {
     @Override
     public Stream<T> peek(Consumer<? super T> action) {
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial, test, (acc, element) -> {
+        reducer.loop(initial, test, (acc, element) -> {
           action.accept(element);
           return fun.apply(acc, element);
         })
@@ -180,7 +189,7 @@ public class StreamImpls {
     @Override
     public Stream<T> filter(Predicate<? super T> predicate) {
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial, test, (acc, element) -> {
+        reducer.loop(initial, test, (acc, element) -> {
           if (predicate.test(element)) {
             return fun.apply(acc, element);
           }
@@ -192,7 +201,7 @@ public class StreamImpls {
     @Override
     public <U> Stream<U> map(Function<? super T, ? extends U> mapper) {
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial, test, (acc, element) ->
+        reducer.loop(initial, test, (acc, element) ->
           fun.apply(acc, mapper.apply(element))));
     }
     @Override
@@ -210,12 +219,12 @@ public class StreamImpls {
     @Override
     public <R> Stream<R> flatMap(Function<? super T, ? extends Stream<? extends R>> mapper) {
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial, test, (acc, element) -> {
+        reducer.loop(initial, test, (acc, element) -> {
           Stream<? extends R> stream = mapper.apply(element);
           try(StreamImpl<? extends R> impl =  (stream instanceof StreamImpl)? 
             (StreamImpl<? extends R>)stream:
             fromIterable(stream::iterator)) {
-            return impl.looper.loop(acc, test, fun);
+            return impl.reducer.loop(acc, test, fun);
           }
         }));
     }
@@ -239,7 +248,7 @@ public class StreamImpls {
     @Override
     @SuppressWarnings("unchecked")
     public <U> U reduce(U identity, BiFunction<U, ? super T, U> accumulator, BinaryOperator<U> __) {
-      return (U)looper.loop(identity, () -> true, (acc, element) -> accumulator.apply((U)acc, element));
+      return (U)reducer.loop(identity, () -> true, (acc, element) -> accumulator.apply((U)acc, element));
     }
     @Override
     @SuppressWarnings("unchecked")
@@ -284,7 +293,7 @@ public class StreamImpls {
     public Stream<T> distinct() {
       HashSet<T> set = new HashSet<>();
       return new StreamImpl<>(closer, (initial, test, fun) ->
-        looper.loop(initial, test, (acc, element) -> {
+        reducer.loop(initial, test, (acc, element) -> {
           if(set.add(element)) {
             return fun.apply(acc, element);
           }
@@ -330,7 +339,7 @@ public class StreamImpls {
       return new StreamImpl<>(() -> {
         closer.run();
         closeHandler.run();
-      }, looper);
+      }, reducer);
     }
 
     @Override
